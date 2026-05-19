@@ -2,6 +2,10 @@ import time
 from datetime import datetime, UTC
 from app.core.stale_detection import is_stale_iso
 from app.core.source_priority import choose_best_source
+from app.core.control_state import (
+    load_control_state,
+    save_control_state,
+)
 from app.core.alert_layer import (
     build_alerts,
     print_alerts,
@@ -16,7 +20,7 @@ INTERVAL_SECONDS = 180
 
 def main():
     print("SCHEDULER_LOOP_V1 STARTED")
-    health = {}
+    health = load_control_state()
     while True:
         started_at = datetime.now(UTC)
 
@@ -67,6 +71,7 @@ def main():
                     "=>",
                     score,
                 )
+        save_control_state(health)
         alerts = build_alerts(health)
         print_alerts(alerts)
 
