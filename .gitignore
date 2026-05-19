@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/
+
+# PyCharm
+.idea/workspace.xml
+
+# Runtime data
+app/data/raw/
+
+# OS
+.DS_Store
+Thumbs.db
