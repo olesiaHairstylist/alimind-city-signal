@@ -2,7 +2,10 @@ from app.core.fetcher import fetch_url, save_raw
 from app.core.source_registry import get_source
 from app.core.dedup import filter_new_signals
 from app.core.pipeline_status import save_pipeline_status
-
+from app.core.preview_gate import (
+    build_preview_item,
+    print_preview_item,
+)
 from app.modules.city_signals.earthquake.usgs_parser import parse_usgs_geojson
 from app.modules.city_signals.earthquake.filter_region import filter_events
 from app.modules.city_signals.earthquake.normalizer import normalize_earthquake_events
@@ -120,9 +123,12 @@ def run_pipeline(health: dict):
     for signal in new_signals:
         message = render_earthquake_signal(signal)
 
-        print("\nREADY_TO_PUBLISH:\n")
-        print(message)
-        print()
+        preview = build_preview_item(
+            signal,
+            message,
+        )
+
+        print_preview_item(preview)
 
     status["result"] = "ok_ready_to_publish"
     save_pipeline_status(status)
