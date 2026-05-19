@@ -1,6 +1,7 @@
 import time
 from datetime import datetime, UTC
-
+from app.core.stale_detection import is_stale_iso
+from app.core.source_priority import choose_best_source
 from app.modules.city_signals.earthquake.pipeline_runner import (
     run_pipeline,
 )
@@ -30,13 +31,40 @@ def main():
         print("\n=== HEALTH STATUS ===")
 
         for source_id, info in health.get("sources", {}).items():
+            is_stale = is_stale_iso(
+                info.get("last_success_at"),
+                max_age_seconds=300,
+            )
             print(
                 source_id,
                 "| alive =", info.get("alive"),
+                "| stale =", is_stale,
                 "| failures =", info.get("consecutive_failures"),
                 "| last_success =", info.get("last_success_at"),
             )
+
+        priority = choose_best_source(health)
+
+        print("\n=== SOURCE PRIORITY ===")
+
+        if priority:
+            print(
+                "BEST:",
+                priority["source"],
+                "| score =",
+                priority["score"],
+            )
+
+            print("RANKING:")
+
+            for score, source_id in priority["ranking"]:
+                print(
+                    source_id,
+                    "=>",
+                    score,
+                )
         print(
+
             f"\nSLEEP {INTERVAL_SECONDS} sec...\n"
         )
 
