@@ -1,0 +1,28 @@
+[
+  {
+    "id": "koeri",
+    "name": "KOERI Kandilli Earthquake List",
+    "category": "earthquake",
+    "url": "https://www.koeri.boun.edu.tr/scripts/lst0.asp",
+    "method": "GET",
+    "parser": "koeri_pre_text",
+    "interval_seconds": 180,
+    "priority": "high",
+    "region": "alanya",
+    "status": "active",
+    "fallback": ["usgs"]
+  },
+  {
+    "id": "usgs",
+    "name": "USGS Earthquake Feed All Hour",
+    "category": "earthquake",
+    "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",
+    "method": "GET",
+    "parser": "usgs_geojson",
+    "interval_seconds": 300,
+    "priority": "fallback",
+    "region": "global",
+    "status": "active",
+    "fallback": []
+  }
+]
