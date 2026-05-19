@@ -2,6 +2,10 @@ import time
 from datetime import datetime, UTC
 from app.core.stale_detection import is_stale_iso
 from app.core.source_priority import choose_best_source
+from app.core.alert_layer import (
+    build_alerts,
+    print_alerts,
+)
 from app.modules.city_signals.earthquake.pipeline_runner import (
     run_pipeline,
 )
@@ -63,6 +67,9 @@ def main():
                     "=>",
                     score,
                 )
+        alerts = build_alerts(health)
+        print_alerts(alerts)
+
         print(
 
             f"\nSLEEP {INTERVAL_SECONDS} sec...\n"
