@@ -3,11 +3,11 @@
   "primary_source": "koeri",
   "source_used": "usgs",
   "fallback_used": true,
-  "raw_saved": "C:\\Users\\Acer\\PycharmProjects\\Alimind City Signal\\app\\data\\raw\\usgs\\2026-05-19_12-35-51.txt",
-  "events_count": 4,
+  "raw_saved": "C:\\Users\\Acer\\PycharmProjects\\Alimind City Signal\\app\\data\\raw\\usgs\\2026-05-19_16-18-14.txt",
+  "events_count": 3,
   "filtered_count": 0,
   "normalized_count": 0,
   "new_signals_count": 0,
   "result": "ok_no_new_signals",
-  "updated_at": "2026-05-19T09:35:51.556642"
+  "updated_at": "2026-05-19T13:18:14.844071"
 }

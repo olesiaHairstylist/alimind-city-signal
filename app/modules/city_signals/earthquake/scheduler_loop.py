@@ -11,7 +11,7 @@ INTERVAL_SECONDS = 180
 
 def main():
     print("SCHEDULER_LOOP_V1 STARTED")
-
+    health = {}
     while True:
         started_at = datetime.now(UTC)
 
@@ -23,11 +23,19 @@ def main():
         print("====================\n")
 
         try:
-            run_pipeline()
+            health = run_pipeline(health)
 
         except Exception as e:
             print("PIPELINE CRASH:", e)
+        print("\n=== HEALTH STATUS ===")
 
+        for source_id, info in health.get("sources", {}).items():
+            print(
+                source_id,
+                "| alive =", info.get("alive"),
+                "| failures =", info.get("consecutive_failures"),
+                "| last_success =", info.get("last_success_at"),
+            )
         print(
             f"\nSLEEP {INTERVAL_SECONDS} sec...\n"
         )
