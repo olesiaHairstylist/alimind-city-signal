@@ -6,11 +6,24 @@ __pycache__/
 .venv/
 
 # PyCharm
-.idea/workspace.xml
+.idea/
+
+# Secrets
+.env
+
+# Archives
+*.zip
 
 # Runtime data
 app/data/raw/
+app/data/system/*.json
+
+# Real Estate project
+app/data/real_estate/
+app/modules/real_estate/
 
 # OS
 .DS_Store
 Thumbs.db
+.idea/
+app/data/system/*.json

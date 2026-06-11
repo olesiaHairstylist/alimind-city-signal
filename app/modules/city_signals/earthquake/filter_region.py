@@ -5,7 +5,6 @@ ALANYA_REGION = {
     "max_lon": 33.5,
 }
 
-
 MIN_MAGNITUDE = 2.5
 
 
@@ -49,3 +48,4 @@ def filter_events(events: list[dict]):
         filtered.append(event)
 
     return filtered
+

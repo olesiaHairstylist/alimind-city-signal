@@ -16,6 +16,7 @@ def load_control_state() -> dict:
             return json.load(f)
 
     except Exception:
+        print("CONTROL STATE CORRUPTED")
         return {}
 
 

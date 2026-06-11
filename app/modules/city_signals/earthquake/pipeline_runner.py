@@ -6,15 +6,44 @@ from app.core.preview_gate import (
     build_preview_item,
     print_preview_item,
 )
+from app.modules.editor.validator import validate_editor_draft
 from app.modules.city_signals.earthquake.usgs_parser import parse_usgs_geojson
 from app.modules.city_signals.earthquake.filter_region import filter_events
+from app.core.telegram_preview_gate import send_admin_preview
+from app.core.auto_approval_audit import save_auto_approval_audit
 from app.modules.city_signals.earthquake.normalizer import normalize_earthquake_events
+from app.core.publish_decisions import add_pending_preview
+from app.core.auto_approval import should_auto_approve
 from app.modules.city_signals.earthquake.message_render import render_earthquake_signal
+from app.core.auto_published_store import (
+    was_auto_published,
+    save_auto_published,
+)
 from app.core.health_monitor import (
     mark_source_success,
     mark_source_failure,
 )
-
+from app.core.auto_cooldown import (
+    is_cooldown_triggered,
+    save_auto_publish_timestamp,
+)
+from app.core.auto_cooldown import (
+    is_cooldown_triggered,
+    save_auto_publish_timestamp,
+)
+from app.core.auto_rate_limit import (
+    is_rate_limit_triggered,
+)
+from app.core.anti_spam_cluster import (
+    is_cluster_blocked,
+    save_cluster_history_item,
+)
+from app.core.source_trust_rules import (
+    is_source_trusted_for_auto,
+)
+from app.core.auto_review_panel import (
+    save_auto_review_item,
+)
 def try_fetch_source(source_id: str, health: dict):
     source = get_source(source_id)
 
@@ -119,9 +148,29 @@ def run_pipeline(health: dict):
         save_pipeline_status(status)
         print("NO NEW SIGNALS")
         return health
-
     for signal in new_signals:
-        message = render_earthquake_signal(signal)
+        post_text = render_earthquake_signal(signal)
+        validation = validate_editor_draft(post_text)
+
+        warnings_text = "\n".join(
+            f"- {w.get('severity')}: {w.get('type')} — {w.get('message', '')}"
+            for w in validation.get("warnings", [])
+        )
+
+        if not warnings_text:
+            warnings_text = "none"
+        message = (
+            "📰 SIGNAL PREVIEW\n\n"
+            f"SOURCE: {status.get('source_used')}\n"
+            f"SCORE: {validation.get('score')}\n"
+            f"RISK: {validation.get('editorial_risk')}\n\n"
+            "━━━━━━━━━━\n\n"
+            "AI DRAFT:\n\n"
+            f"{post_text}\n\n"
+            "━━━━━━━━━━\n\n"
+            "WARNINGS:\n\n"
+            f"{warnings_text}"
+        )
 
         preview = build_preview_item(
             signal,
@@ -129,6 +178,126 @@ def run_pipeline(health: dict):
         )
 
         print_preview_item(preview)
+        add_pending_preview(
+            signal["signal_id"],
+            message,
+            signal,
+        )
+
+        auto_result = should_auto_approve(signal)
+
+        print("=== AUTO APPROVAL CHECK ===")
+        print("SIGNAL:", signal["signal_id"])
+        print("APPROVED:", auto_result["approved"])
+        print("REASON:", auto_result["reason"])
+        print("=== END AUTO APPROVAL CHECK ===")
+        save_auto_approval_audit(
+            signal["signal_id"],
+            auto_result,
+            signal,
+        )
+
+        if auto_result["approved"]:
+            print("=== AUTO APPROVAL ROUTING ===")
+            print("MODE: REAL_AUTO_PUBLISH")
+            print("ACTION: AUTO_PUBLISH")
+            print("SIGNAL:", signal["signal_id"])
+            print("REASON:", auto_result["reason"])
+            print("=== END AUTO APPROVAL ROUTING ===")
+            if is_cooldown_triggered():
+                print("AUTO COOLDOWN ACTIVE")
+                print("ACTION: FALLBACK_TO_MANUAL")
+                save_auto_review_item(
+                    signal["signal_id"],
+                    "auto_cooldown_active",
+                    status.get("source_used") or "unknown",
+                )
+                send_admin_preview(
+                    signal["signal_id"],
+                    message,
+                )
+
+                continue
+            if is_cluster_blocked(signal):
+                print("ANTI SPAM CLUSTER ACTIVE")
+                print("ACTION: FALLBACK_TO_MANUAL")
+                save_auto_review_item(
+                    signal["signal_id"],
+                    "anti_spam_cluster_active",
+                    status.get("source_used") or "unknown",
+                )
+                send_admin_preview(
+                    signal["signal_id"],
+                    message,
+                )
+
+                continue
+            if is_rate_limit_triggered():
+                print("AUTO RATE LIMIT ACTIVE")
+                print("ACTION: FALLBACK_TO_MANUAL")
+                save_auto_review_item(
+                    signal["signal_id"],
+                    "auto_rate_limit_active",
+                    status.get("source_used") or "unknown",
+                )
+                send_admin_preview(
+                    signal["signal_id"],
+                    message,
+                )
+
+                continue
+            if not is_source_trusted_for_auto(signal):
+                print("SOURCE TRUST BLOCKED")
+                print("ACTION: FALLBACK_TO_MANUAL")
+                print(
+                    "SOURCE:",
+                    signal.get("source")
+                    or signal.get("source_name")
+                    or "unknown",
+                )
+                save_auto_review_item(
+                    signal["signal_id"],
+                    "source_trust_blocked",
+                    status.get("source_used") or "unknown",
+                )
+                send_admin_preview(
+                    signal["signal_id"],
+                    message,
+                )
+
+                continue
+            from app.core.post_cleaner import extract_public_post
+            from app.core.channel_publisher import publish_to_channel
+            if was_auto_published(signal["signal_id"]):
+                print("AUTO DUPLICATE SKIPPED:", signal["signal_id"])
+                continue
+            public_post = extract_public_post(message)
+
+            publish_to_channel(public_post)
+
+            save_auto_published(
+                signal["signal_id"],
+                auto_result["reason"],
+            )
+
+            save_auto_publish_timestamp()
+            save_cluster_history_item(signal)
+        else:
+            print("=== AUTO APPROVAL ROUTING ===")
+            print("MODE: MANUAL_REVIEW")
+            print("ACTION: SEND_TO_PREVIEW")
+            print("SIGNAL:", signal["signal_id"])
+            print("REASON:", auto_result["reason"])
+            print("=== END AUTO APPROVAL ROUTING ===")
+            save_auto_review_item(
+                signal["signal_id"],
+                auto_result["reason"],
+                status.get("source_used") or "unknown",
+            )
+            send_admin_preview(
+                signal["signal_id"],
+                message,
+            )
 
     status["result"] = "ok_ready_to_publish"
     save_pipeline_status(status)
