@@ -19,10 +19,12 @@ from app.modules.city_signals.news.news_dedup import (
     filter_new_news,
     save_seen_news,
 )
-from app.modules.city_signals.news.news_filter import (
-    is_alanya_news,
+from app.core.alanya_topic_filter import (
+    should_process_alanya_news,
 )
-
+from app.modules.city_signals.news.local_relevance import (
+    is_locally_relevant,
+)
 from app.modules.city_signals.news.news_moderation_message import (
     render_news_moderation_message,
 )
@@ -68,10 +70,14 @@ def run_yeni_alanya_pipeline():
         return
 
     for signal in new_signals:
+        if not is_locally_relevant(signal):
+            print("NEWS SKIPPED: LOW LOCAL RELEVANCE")
+            save_seen_news(signal["signal_id"])
+            continue
         print("----")
         print(render_news_preview(signal))
 
-        if is_alanya_news(signal):
+        if should_process_alanya_news(signal):
             if is_blocked_news(signal):
                 print("NEWS BLOCKED BY CONTENT FILTER")
                 save_seen_news(signal["signal_id"])
@@ -91,7 +97,12 @@ def run_yeni_alanya_pipeline():
         """
 
             message = generate_editor_draft(raw_news)
+            published_at = signal.get("published_at", "unknown")
 
+            message += (
+                f"\n\n🕒 Опубликовано источником:\n"
+                f"{published_at}"
+            )
             if "Источник:" not in message:
                 message = message + f"\n\nИсточник: Yeni Alanya\n{signal.get('link')}"
 
