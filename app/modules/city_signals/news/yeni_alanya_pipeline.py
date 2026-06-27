@@ -114,6 +114,9 @@ def run_yeni_alanya_pipeline():
                 message,
                 signal,
             )
+
+            save_seen_news(signal["signal_id"])
+
             preview_result = send_preview_message(
                 signal["signal_id"],
                 message,
